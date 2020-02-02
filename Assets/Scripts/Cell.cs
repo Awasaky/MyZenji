@@ -5,42 +5,32 @@ using UnityEngine;
 public class Cell : MonoBehaviour
 {
   public bool controlsNord, controlsEast, controlsSouth, controlsWest;
-
-  struct Controls
+  public struct Connector
   {
-    public static bool Nord, East, South, West;
+    public bool Control;
+    public bool Connected;
+    public GameObject Neighbour;
   }
+  public Connector Nord, East, South, West;
 
-  struct Connectors
+  void Awake()
   {
-    public static bool Nord, East, South, West;
-  }
-
-  struct Links
-  {
-    public static Cell Nord, East, South, West;
-  }
-
-  struct Connections
-  {
-    public static bool Nord, East, South, West;
-  }
-
-  void Start()
-  {
-    Controls.Nord = controlsNord;
-    Controls.East = controlsEast;
-    Controls.South = controlsSouth;
-    Controls.West = controlsWest;
-
-    Connectors.Nord = Controls.Nord;
-    Connectors.East = Controls.East;
-    Connectors.South = Controls.South;
-    Connectors.West = Controls.West;
+    // copying initial position of links to Connector Controls
+    Nord.Control = controlsNord;
+    East.Control = controlsEast;
+    South.Control = controlsSouth;
+    West.Control = controlsWest;
   }
 
   void Update()
   {
 
+  }
+
+  void OnMouseDown()
+  {
+    // prototype method - on click call playfield method to turn cell inside playfield
+    PlayFieldBehaviour callTarget = transform.parent.gameObject.GetComponent<PlayFieldBehaviour>();
+    callTarget.TurnCell(gameObject);
   }
 }
