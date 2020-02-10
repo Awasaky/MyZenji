@@ -5,13 +5,17 @@ using UnityEngine;
 public class Cell : MonoBehaviour
 {
   public bool controlsNord, controlsEast, controlsSouth, controlsWest;
+  public bool controlsNordWay, controlsEastWay, controlsSouthWay, controlsWestWay;
+  public bool Turnable;
   public struct Connector
   {
     public bool Control;
+    public bool Way;
     public bool Connected;
-    public GameObject Neighbour;
   }
   public Connector Nord, East, South, West;
+  public GameObject LineA;
+  public GameObject LineB;
 
   void Awake()
   {
@@ -20,6 +24,11 @@ public class Cell : MonoBehaviour
     East.Control = controlsEast;
     South.Control = controlsSouth;
     West.Control = controlsWest;
+
+    Nord.Way = controlsNordWay;
+    East.Way = controlsEastWay;
+    South.Way = controlsSouthWay;
+    West.Way = controlsWestWay;
   }
 
   void Update()

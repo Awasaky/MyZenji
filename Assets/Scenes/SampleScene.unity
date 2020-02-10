@@ -163,6 +163,16 @@ MonoBehaviour:
     type: 3}
   cellType4: {fileID: 2282403621305232177, guid: 8a502c9f9eb6d9346aea78ef43646606,
     type: 3}
+  cellType5: {fileID: 2651986707619543545, guid: 9ac34f280916ed74e97c72dd7ba89315,
+    type: 3}
+  cellType6: {fileID: 2831330196385010619, guid: e2301c900070aaa408b8d321fb8b6d25,
+    type: 3}
+  cellType7: {fileID: 2282403621305232177, guid: e1a466da749b5c94e8a08aeff37e2475,
+    type: 3}
+  underlayTurnable: {fileID: 5309033633174131190, guid: 57a772cb241ad284eb0dcfd6347779f2,
+    type: 3}
+  underlayStatic: {fileID: 2480764554549496549, guid: 593b1b998fcba284fa1373c7bcc6dafc,
+    type: 3}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
