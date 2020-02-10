@@ -6,20 +6,30 @@ public class PlayFieldBehaviour : MonoBehaviour
 {
   struct ArrayCell
   {
-    int Code;
-    bool Turnable;
-    bool Bonus;
+    public int Code;
+    public bool Turnable;
+    public int Angle;
+    public bool Bonus;
+
+    public ArrayCell(int codeAssigment, bool turnAssigment, int angleAssigment, bool bonusAssigment)
+    {
+      Code = codeAssigment;
+      Turnable = turnAssigment;
+      Angle = angleAssigment;
+      Bonus = bonusAssigment;
+    }
   }
   // public GameObject cellType0; // because zero means "null"
   public GameObject cellType1, cellType2, cellType3, cellType4, cellType5, cellType6, cellType7; // assign different types of cell prefabs
   public GameObject underlayTurnable, underlayStatic;
   GameObject[] CellTypes;
+  bool initialTurn;
 
   int startWidth, startHeight; // energy source coordinates
   GameObject[,] FieldMap;
   GameObject[,] UnderlayMap;
-  bool[,] RotationMap;
   int FieldHeight, FieldWidth; // fieldSize
+
 
   void Start()
   {
@@ -36,65 +46,79 @@ public class PlayFieldBehaviour : MonoBehaviour
     FieldMap = new GameObject[5, 4]; //width, height
     UnderlayMap = new GameObject[5, 4];
     FieldHeight = 5;
-    FieldWidth = 4;
+    FieldWidth = 4;   
     //initial cells array
-    int[,] FieldCode = new int[5, 4] {
-      { 2, 1, 2, 3 }, // x = 1
-      { 1, 1, 3, 1 }, // x = 2
-      { 3, 3, 2, 1 }, // x = 3
-      { 2, 1, 3, 3 }, // x = 4
-      { 2, 2, 3, 1 } // x = 5
+    ArrayCell[,] FieldCode = new ArrayCell[5, 4] {
+      { new ArrayCell(2, false, 1, false), new ArrayCell(1, true, 0, false), new ArrayCell(2, true, 0, false), new ArrayCell(2, true, 0, false) }, // верхний левый угол - нижний левый угол
+      { new ArrayCell(1, true, 0, false), new ArrayCell(1, true, 0, false), new ArrayCell(3, true, 2, false), new ArrayCell(3, true, 0, false) },
+      { new ArrayCell(3, true, 0, false), new ArrayCell(3, false, 0, false), new ArrayCell(3, true, 0, false), new ArrayCell(2, true, 0, false) },
+      { new ArrayCell(2, true, 0, false), new ArrayCell(1, true, 0, false), new ArrayCell(3, true, 0, false), new ArrayCell(3, true, 0, false) },
+      { new ArrayCell(2, false, 2, false), new ArrayCell(2, true, 0, false), new ArrayCell(1, true, 0, false), new ArrayCell(2, true, 0, false) } // верхний правый угол - нижний правый угол
     };
 
-    RotationMap =  new bool [5,4] {
-      { true, false, true, true }, // x = 1
-      { false, true, true, true }, // x = 2
-      { true, true, false, true }, // x = 3
-      { true, true, true, false }, // x = 4
-      { true, true, true, true } // x = 5
-    };
-
-    BuildField(FieldCode, RotationMap);
+    BuildField(FieldCode);
+    StartTurnCells(FieldCode);
     UpdateAllConnections();
     ReDrawAll();
   }
 
   void Update()
   {
-    
+
   }
 
-  void BuildField(int[,] CodeArray, bool[,] RotationArray)
+  void BuildField(ArrayCell[,] CodeArray)
   {
     for (int i = 0; i < FieldHeight; i++)
     {
       for (int k = 0; k < FieldWidth; k++)
       {
-        if (CodeArray[i, k] != 0)
+        if (CodeArray[i, k].Code != 0)
         {
-          FieldMap[i, k] = Instantiate(CellTypes[CodeArray[i, k]], transform);
+          FieldMap[i, k] = Instantiate(CellTypes[CodeArray[i, k].Code], transform);
           Vector2 CellPlace = new Vector2(i * 4, k * -4);
           FieldMap[i, k].transform.position = CellPlace;
-          FieldMap[i, k].GetComponent<Cell>().Turnable = RotationArray[i, k];
-          if (RotationArray[i, k])
+          FieldMap[i, k].GetComponent<Cell>().Turnable = CodeArray[i, k].Turnable;
+          if (CodeArray[i, k].Turnable)
           {
-            UnderlayMap[i,k] = Instantiate(underlayTurnable, transform);
+            UnderlayMap[i, k] = Instantiate(underlayTurnable, transform);
           }
           else
           {
             UnderlayMap[i, k] = Instantiate(underlayStatic, transform);
-            
+
           }
           UnderlayMap[i, k].transform.position = CellPlace;
+          UnderlayMap[i, k].GetComponent<Renderer>().sortingOrder = -1;
         }
       }
     }
   }
 
+  void StartTurnCells(ArrayCell[,] CodeArray)
+  {
+    initialTurn = true;
+    for (int i = 0; i < FieldHeight; i++)
+    {
+      for (int k = 0; k < FieldWidth; k++)
+      {
+        CodeArray[i, k].Angle = CodeArray[i, k].Angle % 4;
+        if (CodeArray[i, k].Angle > 0)
+        {
+          for (int l = 0; l < CodeArray[i, k].Angle; l++)
+          {
+            TurnCell(FieldMap[i, k]);
+          }
+        }
+      }
+    }
+    initialTurn = false;
+  }
+
   public void TurnCell(GameObject CellObject)
   {
     Cell toTurn = CellObject.GetComponent<Cell>();
-    if (!toTurn.Turnable) return; //if false - do nothing;
+    if (!initialTurn && !toTurn.Turnable) return; //if false - do nothing;
 
     CellObject.transform.Rotate(new Vector3(0, 0, -90));
     Cell.Connector tempConnector = toTurn.Nord;
