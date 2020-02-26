@@ -4,14 +4,14 @@ using UnityEngine;
 
 public class PlayFieldBehaviour : MonoBehaviour
 {
-  struct ArrayCell
+  struct InitialCell
   {
     public int Code;
     public bool Turnable;
     public int Angle;
     public bool Bonus;
 
-    public ArrayCell(int codeAssigment, bool turnAssigment, int angleAssigment, bool bonusAssigment)
+    public InitialCell(int codeAssigment, bool turnAssigment, int angleAssigment, bool bonusAssigment)
     {
       Code = codeAssigment;
       Turnable = turnAssigment;
@@ -19,21 +19,40 @@ public class PlayFieldBehaviour : MonoBehaviour
       Bonus = bonusAssigment;
     }
   }
-  // public GameObject cellType0; // because zero means "null"
+
+  struct StartPoint
+  {
+    public int Width;
+    public int Height;
+    public Color SourceColor;
+
+    public StartPoint(int heightAssigment, int widthAssigment, Color colorAssigment)
+    {
+      Width = widthAssigment;
+      Height = heightAssigment;
+      SourceColor = colorAssigment;
+    }
+  }
+
+  // public GameObject cellType0; // because zero means "empty"
   public GameObject cellType1, cellType2, cellType3, cellType4, cellType5, cellType6, cellType7; // assign different types of cell prefabs
   public GameObject underlayTurnable, underlayStatic;
   GameObject[] CellTypes;
-  bool initialTurn;
+  bool initialTurnAllowed;
+  Color emptyColor;
 
-  int startWidth, startHeight; // energy source coordinates
-  GameObject[,] FieldMap;
-  GameObject[,] UnderlayMap;
-  int FieldHeight, FieldWidth; // fieldSize
+  StartPoint[] StartPoints;
+  int StartPointsCount;
+  GameObject[,] PlayFieldMap;
+  int PlayFieldHeight, PlayFieldWidth; // fieldSize stored as different variable
+  GameObject[,] UnderlayFieldMap;
 
 
   void Start()
   {
+    #region CellTypes Assigment
     CellTypes = new GameObject[8];
+    CellTypes[0] = null;
     CellTypes[1] = cellType1;
     CellTypes[2] = cellType2;
     CellTypes[3] = cellType3;
@@ -41,101 +60,110 @@ public class PlayFieldBehaviour : MonoBehaviour
     CellTypes[5] = cellType5;
     CellTypes[6] = cellType6;
     CellTypes[7] = cellType7;
-    startHeight = 1;
-    startWidth = 2;
-    FieldMap = new GameObject[5, 4]; //width, height
-    UnderlayMap = new GameObject[5, 4];
-    FieldHeight = 5;
-    FieldWidth = 4;   
-    //initial cells array
-    ArrayCell[,] FieldCode = new ArrayCell[5, 4] {
-      { new ArrayCell(2, false, 1, false), new ArrayCell(1, true, 0, false), new ArrayCell(2, true, 0, false), new ArrayCell(2, true, 0, false) }, // верхний левый угол - нижний левый угол
-      { new ArrayCell(1, true, 0, false), new ArrayCell(1, true, 0, false), new ArrayCell(3, true, 2, false), new ArrayCell(3, true, 0, false) },
-      { new ArrayCell(3, true, 0, false), new ArrayCell(3, false, 0, false), new ArrayCell(3, true, 0, false), new ArrayCell(2, true, 0, false) },
-      { new ArrayCell(2, true, 0, false), new ArrayCell(1, true, 0, false), new ArrayCell(3, true, 0, false), new ArrayCell(3, true, 0, false) },
-      { new ArrayCell(2, false, 2, false), new ArrayCell(2, true, 0, false), new ArrayCell(1, true, 0, false), new ArrayCell(2, true, 0, false) } // верхний правый угол - нижний правый угол
+    #endregion
+    initialTurnAllowed = false;
+    emptyColor = Color.white;
+    StartPoints = new StartPoint[2]{
+      new StartPoint( 1, 2, Color.green),
+      new StartPoint(4, 3, Color.red)
+    };
+    StartPointsCount = 2; //  later load from another place
+    PlayFieldMap = new GameObject[5, 4]; //arguments sequence - width, height
+    PlayFieldHeight = 5; //  later load from another place
+    PlayFieldWidth = 4; //  later load from another place
+    UnderlayFieldMap = new GameObject[5, 4];
+
+    //initial cells array - later load from another place
+    InitialCell[,] FieldCode = new InitialCell[5, 4] {
+      { new InitialCell(2, false, 1, false), new InitialCell(1, true, 0, false), new InitialCell(2, true, 0, false), new InitialCell(2, true, 0, false) }, // upper left corner - downer left corner
+      { new InitialCell(1, true, 0, false), new InitialCell(1, true, 0, false), new InitialCell(3, true, 2, false), new InitialCell(3, true, 0, false) },
+      { new InitialCell(3, true, 0, false), new InitialCell(3, false, 0, false), new InitialCell(3, true, 0, false), new InitialCell(2, true, 0, false) },
+      { new InitialCell(2, true, 0, false), new InitialCell(1, true, 0, false), new InitialCell(3, true, 0, false), new InitialCell(3, true, 0, false) },
+      { new InitialCell(2, false, 2, false), new InitialCell(2, true, 0, false), new InitialCell(1, true, 0, false), new InitialCell(2, true, 0, false) } // upper right corner - downer right corner
     };
 
-    BuildField(FieldCode);
-    StartTurnCells(FieldCode);
+    BuildGameField(FieldCode);
+    StartingTurnCells(FieldCode);
     UpdateAllConnections();
     ReDrawAll();
   }
 
-  void Update()
+  void BuildGameField(InitialCell[,] CodeArray)
   {
-
-  }
-
-  void BuildField(ArrayCell[,] CodeArray)
-  {
-    for (int i = 0; i < FieldHeight; i++)
+    // take PlayFieldHeight, PlayFieldWidth, CellTypes, underlayTurnable, underlayStatic
+    // change PlayFieldMap, UnderlayFieldMap
+    for (int i = 0; i < PlayFieldHeight; i++)
     {
-      for (int k = 0; k < FieldWidth; k++)
+      for (int k = 0; k < PlayFieldWidth; k++)
       {
         if (CodeArray[i, k].Code != 0)
         {
-          FieldMap[i, k] = Instantiate(CellTypes[CodeArray[i, k].Code], transform);
+          PlayFieldMap[i, k] = Instantiate(CellTypes[CodeArray[i, k].Code], transform);
           Vector2 CellPlace = new Vector2(i * 4, k * -4);
-          FieldMap[i, k].transform.position = CellPlace;
-          FieldMap[i, k].GetComponent<Cell>().Turnable = CodeArray[i, k].Turnable;
+          PlayFieldMap[i, k].transform.position = CellPlace;
+          PlayFieldMap[i, k].GetComponent<Cell>().Turnable = CodeArray[i, k].Turnable;
           if (CodeArray[i, k].Turnable)
           {
-            UnderlayMap[i, k] = Instantiate(underlayTurnable, transform);
+            UnderlayFieldMap[i, k] = Instantiate(underlayTurnable, transform);
           }
           else
           {
-            UnderlayMap[i, k] = Instantiate(underlayStatic, transform);
-
+            UnderlayFieldMap[i, k] = Instantiate(underlayStatic, transform);
           }
-          UnderlayMap[i, k].transform.position = CellPlace;
-          UnderlayMap[i, k].GetComponent<Renderer>().sortingOrder = -1;
+          UnderlayFieldMap[i, k].transform.position = CellPlace;
+          UnderlayFieldMap[i, k].GetComponent<Renderer>().sortingOrder = -1;
         }
       }
     }
   }
 
-  void StartTurnCells(ArrayCell[,] CodeArray)
+  void StartingTurnCells(InitialCell[,] CodeArray)
   {
-    initialTurn = true;
-    for (int i = 0; i < FieldHeight; i++)
+    //take initialTurnAllowed, PlayFieldHeight, PlayFieldWidth, 
+    //change initialTurnAllowed, CodeArray, PlayFieldMap
+    initialTurnAllowed = true;
+    for (int i = 0; i < PlayFieldHeight; i++)
     {
-      for (int k = 0; k < FieldWidth; k++)
+      for (int k = 0; k < PlayFieldWidth; k++)
       {
-        CodeArray[i, k].Angle = CodeArray[i, k].Angle % 4;
+        CodeArray[i, k].Angle = CodeArray[i, k].Angle % 4; // only 4 directions allowed
         if (CodeArray[i, k].Angle > 0)
         {
           for (int l = 0; l < CodeArray[i, k].Angle; l++)
           {
-            TurnCell(FieldMap[i, k]);
+            TurnCell(PlayFieldMap[i, k]);
           }
         }
       }
     }
-    initialTurn = false;
+    initialTurnAllowed = false;
   }
 
   public void TurnCell(GameObject CellObject)
   {
+    //prototype method also external used
     Cell toTurn = CellObject.GetComponent<Cell>();
-    if (!initialTurn && !toTurn.Turnable) return; //if false - do nothing;
+    if (!initialTurnAllowed && !toTurn.Turnable) return; //if false - do nothing;
 
     CellObject.transform.Rotate(new Vector3(0, 0, -90));
+    
+    // connectors turning logic
     Cell.Connector tempConnector = toTurn.Nord;
     toTurn.Nord = toTurn.West;
     toTurn.West = toTurn.South;
     toTurn.South = toTurn.East;
     toTurn.East = tempConnector;
 
+    if (initialTurnAllowed) return; // speed up initial turning
     UpdateAllConnections();
     ReDrawAll();
   }
 
   void UpdateAllConnections()
   {
-    for (int i = 0; i < FieldHeight; i++)
+    for (int i = 0; i < PlayFieldHeight; i++)
     {
-      for (int k = 0; k < FieldWidth; k++)
+      for (int k = 0; k < PlayFieldWidth; k++)
       {
         UpdateConnection(i, k);
       }
@@ -144,27 +172,27 @@ public class PlayFieldBehaviour : MonoBehaviour
 
   void UpdateConnection(int posHeight, int posWidth)
   {
-    Cell CurrentCell = FieldMap[posHeight, posWidth].GetComponent<Cell>();
-    #region Assign Neighbours Links
+    Cell CurrentCell = PlayFieldMap[posHeight, posWidth].GetComponent<Cell>();
+    #region Getting neighbours from PlayFieldMap
     Cell NordNeighbour = null;
     Cell EastNeighbour = null;
     Cell SouthNeighbour = null;
     Cell WestNeighbour = null;
     if (posWidth > 0)
     {
-      NordNeighbour = FieldMap[posHeight, posWidth - 1].GetComponent<Cell>(); 
+      NordNeighbour = PlayFieldMap[posHeight, posWidth - 1].GetComponent<Cell>(); 
     }
-    if (posHeight < FieldHeight - 1)
+    if (posHeight < PlayFieldHeight - 1)
     {
-      EastNeighbour = FieldMap[posHeight + 1, posWidth].GetComponent<Cell>(); 
+      EastNeighbour = PlayFieldMap[posHeight + 1, posWidth].GetComponent<Cell>(); 
     }
-    if (posWidth < FieldWidth - 1)
+    if (posWidth < PlayFieldWidth - 1)
     {
-      SouthNeighbour = FieldMap[posHeight, posWidth + 1].GetComponent<Cell>(); 
+      SouthNeighbour = PlayFieldMap[posHeight, posWidth + 1].GetComponent<Cell>(); 
     }
     if (posHeight > 0)
     {
-      WestNeighbour = FieldMap[posHeight - 1, posWidth].GetComponent<Cell>();
+      WestNeighbour = PlayFieldMap[posHeight - 1, posWidth].GetComponent<Cell>();
     }
     #endregion
 
@@ -221,58 +249,74 @@ public class PlayFieldBehaviour : MonoBehaviour
 
   void ReDrawAll()
   {
-    for (int i = 0; i < FieldHeight; i++)
+    ClearField();
+    // here we start redrawings from array StartPoints.
+    for (int i = 0; i < StartPointsCount; i++)
     {
-      for (int k = 0; k < FieldWidth; k++)
+      ReDrawCell(StartPoints[i].Height, StartPoints[i].Width, StartPoints[i].SourceColor);
+    }
+  }
+
+  void ClearField()
+  {
+    for (int i = 0; i < PlayFieldHeight; i++)
+    {
+      for (int k = 0; k < PlayFieldWidth; k++)
       {
-        Renderer[] toWhite = FieldMap[i, k].GetComponentsInChildren<Renderer>();
-        for (int m = 0; m < toWhite.Length; m++)
-        { 
-          toWhite[m].material.color = Color.white;
+        Renderer[] CellParts = PlayFieldMap[i, k].GetComponentsInChildren<Renderer>();
+        for (int m = 0; m < CellParts.Length; m++)
+        {
+          CellParts[m].material.color = emptyColor;
         }
       }
     }
-    ReDrawCell(startHeight, startWidth, Color.green);
   }
 
   void ReDrawCell(int posHeight, int posWidth, Color newColor)
   {
-    Renderer[] CellRend = FieldMap[posHeight, posWidth].GetComponentsInChildren<Renderer>();
-    for (int i = 0; i < CellRend.Length; i++)
+    // if new color isn't same than here position start color - stop
+    for (int i = 0; i < StartPointsCount; i++)
     {
-      CellRend[i].material.color = newColor;
+      if (StartPoints[i].SourceColor != newColor && StartPoints[i].Height == posHeight && StartPoints[i].Width == posWidth) return;
     }
 
-    Cell CurrentCell = FieldMap[posHeight, posWidth].GetComponent<Cell>();
+    // Paint this position cell
+    Renderer[] CurrentCellRend = PlayFieldMap[posHeight, posWidth].GetComponentsInChildren<Renderer>();
+    for (int i = 0; i < CurrentCellRend.Length; i++)
+    {
+      CurrentCellRend[i].material.color = newColor;
+    }
 
+    // check what neighbours can be redrawed
+    Cell CurrentCell = PlayFieldMap[posHeight, posWidth].GetComponent<Cell>();
     if (posWidth > 0 && CurrentCell.Nord.Connected)
     {
-      Renderer[] NordCell = FieldMap[posHeight, posWidth - 1].GetComponentsInChildren<Renderer>();
-      if (NordCell[0].material.color == Color.white)
+      Renderer[] NordCell = PlayFieldMap[posHeight, posWidth - 1].GetComponentsInChildren<Renderer>();
+      if (NordCell[0].material.color == emptyColor)
       {
         ReDrawCell(posHeight, posWidth - 1, newColor);
       }
     }
-    if (posHeight + 1 < FieldHeight && CurrentCell.East.Connected)
+    if (posHeight + 1 < PlayFieldHeight && CurrentCell.East.Connected)
     {
-      Renderer[] EastCell = FieldMap[posHeight + 1, posWidth].GetComponentsInChildren<Renderer>();
-      if (EastCell[0].material.color == Color.white)
+      Renderer[] EastCell = PlayFieldMap[posHeight + 1, posWidth].GetComponentsInChildren<Renderer>();
+      if (EastCell[0].material.color == emptyColor)
       {
         ReDrawCell(posHeight + 1, posWidth, newColor);
       }
     }
-    if (posWidth + 1 < FieldWidth && CurrentCell.South.Connected)
+    if (posWidth + 1 < PlayFieldWidth && CurrentCell.South.Connected)
     {
-      Renderer[] SouthCell = FieldMap[posHeight, posWidth + 1].GetComponentsInChildren<Renderer>();
-      if (SouthCell[0].material.color == Color.white)
+      Renderer[] SouthCell = PlayFieldMap[posHeight, posWidth + 1].GetComponentsInChildren<Renderer>();
+      if (SouthCell[0].material.color == emptyColor)
       {
         ReDrawCell(posHeight, posWidth + 1, newColor);
       }
     }
     if (posHeight > 0 && CurrentCell.West.Connected)
     {
-      Renderer[] WestCell = FieldMap[posHeight - 1, posWidth].GetComponentsInChildren<Renderer>();
-      if (WestCell[0].material.color == Color.white)
+      Renderer[] WestCell = PlayFieldMap[posHeight - 1, posWidth].GetComponentsInChildren<Renderer>();
+      if (WestCell[0].material.color == emptyColor)
       {
         ReDrawCell(posHeight - 1, posWidth, newColor);
       }

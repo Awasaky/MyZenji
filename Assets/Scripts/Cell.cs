@@ -14,8 +14,8 @@ public class Cell : MonoBehaviour
     public bool Connected;
   }
   public Connector Nord, East, South, West;
-  public GameObject LineA;
-  public GameObject LineB;
+  public GameObject LineA; // link to recolor Line A
+  public GameObject LineB; // link to recolor Line B
 
   void Awake()
   {
@@ -29,11 +29,6 @@ public class Cell : MonoBehaviour
     East.Way = controlsEastWay;
     South.Way = controlsSouthWay;
     West.Way = controlsWestWay;
-  }
-
-  void Update()
-  {
-
   }
 
   void OnMouseDown()
