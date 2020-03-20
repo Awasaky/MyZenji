@@ -80,8 +80,9 @@ MonoBehaviour:
   controlsEastWay: 1
   controlsSouthWay: 0
   controlsWestWay: 1
-  LineA: {fileID: 7762065040705031142}
-  LineB: {fileID: 7075817090195327188}
+  Turnable: 0
+  LineA: {fileID: 7075817090195327188}
+  LineB: {fileID: 7762065040705031142}
 --- !u!1 &7075817090195327188
 GameObject:
   m_ObjectHideFlags: 0

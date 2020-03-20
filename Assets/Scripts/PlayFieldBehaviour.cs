@@ -34,9 +34,11 @@ public class PlayFieldBehaviour : MonoBehaviour
     }
   }
 
+  enum PaintFrom {Start, Nord, East, South, West};
+
   // public GameObject cellType0; // because zero means "empty"
   public GameObject cellType1, cellType2, cellType3, cellType4, cellType5, cellType6, cellType7; // assign different types of cell prefabs
-  public GameObject underlayTurnable, underlayStatic;
+  public GameObject underlayTurnable, underlayStatic; // layers of objects
   GameObject[] CellTypes;
   bool initialTurnAllowed;
   Color emptyColor;
@@ -75,8 +77,8 @@ public class PlayFieldBehaviour : MonoBehaviour
 
     //initial cells array - later load from another place
     InitialCell[,] FieldCode = new InitialCell[5, 4] {
-      { new InitialCell(2, false, 1, false), new InitialCell(1, true, 0, false), new InitialCell(2, true, 0, false), new InitialCell(2, true, 0, false) }, // upper left corner - downer left corner
-      { new InitialCell(1, true, 0, false), new InitialCell(1, true, 0, false), new InitialCell(3, true, 2, false), new InitialCell(3, true, 0, false) },
+      { new InitialCell(2, false, 1, false), new InitialCell(5, true, 0, false), new InitialCell(2, true, 0, false), new InitialCell(2, true, 0, false) }, // upper left corner - downer left corner
+      { new InitialCell(1, true, 0, false), new InitialCell(6, true, 0, false), new InitialCell(3, true, 2, false), new InitialCell(3, true, 0, false) },
       { new InitialCell(3, true, 0, false), new InitialCell(3, false, 0, false), new InitialCell(3, true, 0, false), new InitialCell(2, true, 0, false) },
       { new InitialCell(2, true, 0, false), new InitialCell(1, true, 0, false), new InitialCell(3, true, 0, false), new InitialCell(3, true, 0, false) },
       { new InitialCell(2, false, 2, false), new InitialCell(2, true, 0, false), new InitialCell(1, true, 0, false), new InitialCell(2, true, 0, false) } // upper right corner - downer right corner
@@ -253,7 +255,7 @@ public class PlayFieldBehaviour : MonoBehaviour
     // here we start redrawings from array StartPoints.
     for (int i = 0; i < StartPointsCount; i++)
     {
-      ReDrawCell(StartPoints[i].Height, StartPoints[i].Width, StartPoints[i].SourceColor);
+      ReDrawCell(StartPoints[i].Height, StartPoints[i].Width, StartPoints[i].SourceColor, PaintFrom.Start);
     }
   }
 
@@ -272,7 +274,7 @@ public class PlayFieldBehaviour : MonoBehaviour
     }
   }
 
-  void ReDrawCell(int posHeight, int posWidth, Color newColor)
+  void ReDrawCell(int posHeight, int posWidth, Color newColor, PaintFrom CallDirection)
   {
     // if new color isn't same than here position start color - stop
     for (int i = 0; i < StartPointsCount; i++)
@@ -280,46 +282,56 @@ public class PlayFieldBehaviour : MonoBehaviour
       if (StartPoints[i].SourceColor != newColor && StartPoints[i].Height == posHeight && StartPoints[i].Width == posWidth) return;
     }
 
+    Cell CurrentCell = PlayFieldMap[posHeight, posWidth].GetComponent<Cell>();
+    bool incomingLine = CurrentCell.Nord.Way; // used to draw another directions, next 3 checks reassign it if needed
+    if (CallDirection == PaintFrom.East) incomingLine = CurrentCell.East.Way;
+    if (CallDirection == PaintFrom.South) incomingLine = CurrentCell.South.Way;
+    if (CallDirection == PaintFrom.West) incomingLine = CurrentCell.West.Way;
+
+    Renderer RendererLineA = CurrentCell.ReturnRendererLineA();
+    Renderer RendererLineB = CurrentCell.ReturnRendererLineB();
+
     // Paint this position cell
-    Renderer[] CurrentCellRend = PlayFieldMap[posHeight, posWidth].GetComponentsInChildren<Renderer>();
-    for (int i = 0; i < CurrentCellRend.Length; i++)
+    if (CallDirection == PaintFrom.Start) // paint from start need'nt check empty colors
     {
-      CurrentCellRend[i].material.color = newColor;
+      RendererLineA.material.color = newColor;
+      if (RendererLineB != null) RendererLineB.material.color = newColor;
+    }
+    else
+    {
+      if (!incomingLine)
+      {
+        if (RendererLineA.material.color != emptyColor) return; // every actual line checks to emptycolor, if not - stop
+        RendererLineA.material.color = newColor;
+      }
+      else
+      {
+        if (RendererLineB != null)
+        { 
+          if (RendererLineB.material.color != emptyColor) return;
+          RendererLineB.material.color = newColor;
+        }
+      }
     }
 
-    // check what neighbours can be redrawed
-    Cell CurrentCell = PlayFieldMap[posHeight, posWidth].GetComponent<Cell>();
-    if (posWidth > 0 && CurrentCell.Nord.Connected)
-    {
-      Renderer[] NordCell = PlayFieldMap[posHeight, posWidth - 1].GetComponentsInChildren<Renderer>();
-      if (NordCell[0].material.color == emptyColor)
-      {
-        ReDrawCell(posHeight, posWidth - 1, newColor);
-      }
-    }
-    if (posHeight + 1 < PlayFieldHeight && CurrentCell.East.Connected)
-    {
-      Renderer[] EastCell = PlayFieldMap[posHeight + 1, posWidth].GetComponentsInChildren<Renderer>();
-      if (EastCell[0].material.color == emptyColor)
-      {
-        ReDrawCell(posHeight + 1, posWidth, newColor);
-      }
-    }
-    if (posWidth + 1 < PlayFieldWidth && CurrentCell.South.Connected)
-    {
-      Renderer[] SouthCell = PlayFieldMap[posHeight, posWidth + 1].GetComponentsInChildren<Renderer>();
-      if (SouthCell[0].material.color == emptyColor)
-      {
-        ReDrawCell(posHeight, posWidth + 1, newColor);
-      }
-    }
-    if (posHeight > 0 && CurrentCell.West.Connected)
-    {
-      Renderer[] WestCell = PlayFieldMap[posHeight - 1, posWidth].GetComponentsInChildren<Renderer>();
-      if (WestCell[0].material.color == emptyColor)
-      {
-        ReDrawCell(posHeight - 1, posWidth, newColor);
-      }
-    }
+    // check what neighbours can be drawed - very complex rules, so moved to special bool
+    bool PaintNordPossible = posWidth > 0 
+      && CurrentCell.Nord.Connected && CallDirection != PaintFrom.Nord 
+      && (CallDirection == PaintFrom.Start || incomingLine == CurrentCell.Nord.Way);
+    bool PaintEastPossible = posHeight + 1 < PlayFieldHeight 
+      && CurrentCell.East.Connected && CallDirection != PaintFrom.East 
+      && (CallDirection == PaintFrom.Start || incomingLine == CurrentCell.East.Way);
+    bool PaintSouthPossible = posWidth + 1 < PlayFieldWidth 
+      && CurrentCell.South.Connected && CallDirection != PaintFrom.South
+      && (CallDirection == PaintFrom.Start || incomingLine == CurrentCell.South.Way);
+    bool PaintWestPossible = posHeight > 0 && CurrentCell.West.Connected
+      && CurrentCell.West.Connected && CallDirection != PaintFrom.West
+      && (CallDirection == PaintFrom.Start || incomingLine == CurrentCell.West.Way);
+
+    // Paint neighbours
+    if (PaintNordPossible) ReDrawCell(posHeight, posWidth - 1, newColor, PaintFrom.South);
+    if (PaintEastPossible) ReDrawCell(posHeight + 1, posWidth, newColor, PaintFrom.West);
+    if (PaintSouthPossible) ReDrawCell(posHeight, posWidth + 1, newColor, PaintFrom.Nord);
+    if (PaintWestPossible) ReDrawCell(posHeight - 1, posWidth, newColor, PaintFrom.East);
   }
 }
